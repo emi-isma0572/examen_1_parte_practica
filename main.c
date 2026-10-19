@@ -22,8 +22,8 @@ typedef enum
 {
 	START,
 	BLINK_WHITE_LED,
-	WAIT_SW2,
 	SHOW_GREEN_1S,
+	WAIT_SW2,
 	WAIT_7S,
 	SHOW_COLOR,
 }State_name_t;
@@ -38,6 +38,7 @@ typedef enum
 }color_t;
 
 color_t color = CYAN;
+bool_value_t sw2 = FALSE;
 
 void GPIO_numbers_pressed_callback()
 {
@@ -50,6 +51,7 @@ void GPIO_numbers_pressed_callback()
 void GPIO_show_green_callback()
 {
 	RGB_green();
+	sw2 = TRUE;
 }
 
 int main(void) {
@@ -59,6 +61,8 @@ int main(void) {
 	MRT_setup_channel(MRT_Channel_0);
 	MRT_start(MRT_Channel_0, MRT_CYECLES_FOR_100_MS);
 	bool_value_t two_seconds = FALSE;
+	bool_value_t two_blinks = FALSE;
+	bool_value_t one_sec = FALSE;
 	uint32_t ticks = 0;
 
     while(1) {
@@ -71,10 +75,22 @@ int main(void) {
     		}
 		break;
     	case(BLINK_WHITE_LED):
+    		if(two_blinks)
+    		{
+    			current_sate = WAIT_SW2;
+    		}
 		break;
     	case(WAIT_SW2):
+    		if(sw2)
+    		{
+    			current_state = SHOW_GREEN_1S;
+    		}
 		break;
     	case(SHOW_GREEN_1S):
+    		if(one_sec)
+    		{
+    			current_state = WAIT_7S;
+    		}
 		break;
     	case(WAIT_7S):
 		break;
@@ -85,10 +101,11 @@ int main(void) {
     	switch(current_state)
     	{
     	case(START):
-    		if(MRT_get_irq_satus())
+    		if(MRT_get_irq_satus(MRT_Channel_0))
     		{
-    			ticks_++;
+    			ticks++;
     		}
+    		MRT_clear_irq_status(MRT_Channel_0);
     		if(20 >= ticks)
     		{
     			two_seconds = TRUE;
@@ -96,10 +113,47 @@ int main(void) {
     		}
 		break;
     	case(BLINK_WHITE_LED):
+    	    if(MRT_get_irq_satus(MRT_Channel_0))
+    	    {
+    	    	ticks++;
+    	    }
+    		MRT_clear_irq_status(MRT_Channel_0);
+    		if(5 == ticks)
+    		{
+    			RGB_white();
+    		} else if(10 == ticks)
+    		{
+    			RGB_off();
+    		} else if(15 == ticks)
+    		{
+    			RGB_white();
+    		} else if(20 == ticks)
+    		{
+    			RGB_off();
+    			two_blinks = TRUE;
+    			ticks = 0;
+    			GPIO_callback_init(GPIO_0, GPIO_show_green_callback);
+    		}
+
 		break;
     	case(WAIT_SW2):
+    		if(sw2)
+    		{
+    			ticks = 0;
+    		}
 		break;
     	case(SHOW_GREEN_1S):
+    			if(MRT_get_irq_satus(MRT_Channel_0))
+    	    	{
+    	    	    ticks++;
+    	    	}
+    	    	MRT_clear_irq_status(MRT_Channel_0);
+    	    	if(10 == ticks)
+    	    	{
+    	    		RGB_off();
+    	    		ticks = 0;
+    	    		one_sec = TRUE;
+    	    	}
 		break;
     	case(WAIT_7S):
 		break;
